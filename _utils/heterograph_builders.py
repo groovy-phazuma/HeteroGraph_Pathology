@@ -278,7 +278,7 @@ class HeteroGraphBuilders():
             final_cci_d.extend(cci_d)
 
             # cell labels of tissue-cell graph
-            tc_dest = [i for i in range(cell_graph.num_nodes())] # tissue-cell destination (0,1,...,649)
+            tc_dest = [i for i in range(cell_graph.num_nodes())]  # tissue-cell destination (0,1,...,649)
             utc_dest = [tc+c_max for tc in tc_dest]
             final_cell_labels.extend(utc_dest)
             c_max = max(utc_dest)+1 # update c_max
@@ -297,6 +297,7 @@ class HeteroGraphBuilders():
                 merge_cell_feature = torch.concat([merge_cell_feature,cell_feature])
             
             print('Cell Size: ',len(cell_graph.ndata['centroid']))
+            print('Tissue Size: ',len(target_feature))
             print('True Label: ', set(true_list))
 
         # tissue-tissue interaction
@@ -317,6 +318,7 @@ class HeteroGraphBuilders():
         cor_adj = cor_adj.applymap(fxn) # update
         adj_t = torch.tensor(np.array(cor_adj))
         """
+        self.adj_t = adj_t
         edge_index = adj_t.nonzero().t().contiguous()
         ts = edge_index[0].tolist()
         td = edge_index[1].tolist()

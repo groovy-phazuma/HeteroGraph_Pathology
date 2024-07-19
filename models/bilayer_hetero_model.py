@@ -35,6 +35,9 @@ class HeteroNet(nn.Module):
         self.embed_tissue = nn.Embedding(2, hid_feats)
         self.embed_feat = nn.Embedding(FEATURE_SIZE, hid_feats)
 
+        self.lin1 = nn.Linear(2048, hid_feats)
+        self.lin2 = nn.Linear(2048, hid_feats)
+
         self.input_linears = nn.ModuleList()
         self.input_acts = nn.ModuleList()
         self.input_norm = nn.ModuleList()
@@ -158,7 +161,7 @@ class HeteroNet(nn.Module):
         args = self.args
 
         input1 = F.leaky_relu(self.embed_feat(graph.srcdata['id']['cell']))
-        input2 = F.leaky_relu(self.embed_cell(graph.srcdata['id']['tissue']))
+        input2 = F.leaky_relu(self.embed_tissue(graph.srcdata['id']['tissue']))
 
         hcell = input1
         htissue = input2
@@ -186,8 +189,8 @@ class HeteroNet(nn.Module):
         cell_feature = graph.srcdata['feat']['cell']
         tissue_feature = graph.srcdata['feat']['tissue']
 
-        hcell = cell_feature
-        htissue = tissue_feature
+        hcell = self.lin1(cell_feature)
+        htissue = self.lin2(tissue_feature)
 
         return hcell, htissue
 
@@ -197,7 +200,7 @@ class HeteroNet(nn.Module):
             hcell, htissue = self.calculate_initial_embedding(graph)
         else:
             hcell, htissue = self.process_initial_feature(graph)
-            
+
         h = {'cell': hcell, 'tissue': htissue}
         hist = [h]
 
