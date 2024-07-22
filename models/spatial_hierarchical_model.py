@@ -413,6 +413,20 @@ def print_info(epoch_num,epochs,info_dict,model,logger):
 
 # %%
 def main(args):
+    Epoch = args.Epoch
+    BatchSize = args.BatchSize
+    LR = args.LR
+    Dropout = args.Dropout
+    Classes = args.Classes
+    FeatureDim = args.FeatureDim
+    ConvHiddenDim = args.ConvHiddenDim
+    ConvOutDim = args.ConvOutDim
+    EncoderLayer = args.EncoderLayer
+    EncoderHead = args.EncoderHead
+    EncoderDim = args.EncoderDim
+    PoolMethod1 = args.PoolMethod1
+    LocationOutDim = args.LocationOutDim
+
     model = GCN(Dropout = Dropout,
             Classes = Classes,   
             FeatureDim = FeatureDim,
@@ -429,6 +443,32 @@ def main(args):
     scheduler = lr_scheduler.StepLR(optimizer,step_size = 40,gamma = 0.1)
     loss_fun = nn.CrossEntropyLoss()
     best_f1 = 0
+
+    # train / val/ test
+    # set collected graph info path
+    train_data_path_list = sorted(list(glob('../train/*pkl')))
+    test_data_path_list = sorted(list(glob('../test/*pkl')))
+
+    trainval_data = []
+    for tp in train_data_path_list:
+        trainval_data.append(pd.read_pickle(tp))
+
+    train_data = trainval_data[0:14]
+    val_data = trainval_data[14::]
+
+    test_data = []
+    for tp in test_data_path_list:
+        test_data.append(pd.read_pickle(tp))
+    
+    # logging settings
+    logger = logging.getLogger(__name__)
+    logger.setLevel(level = logging.INFO)
+    handler = logging.FileHandler("../logs/xxx.log")
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
 
     pbar = tqdm(range(Epoch))
     for epoch_num in pbar:

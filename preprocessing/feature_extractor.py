@@ -32,15 +32,20 @@ class MyCell2Patch(Dataset):
     """
     Extract patches that place each cell in the center.
     """
-    def __init__(self, image_path:str, json_path:str) -> None:
+    def __init__(self, image_path:str='', json_path:str='', image=None, nuc_info=None, ext_method="centroid") -> None:
         super().__init__()
-        self.image = Image.open(image_path).convert("RGB") # Load image
+        if image is None:
+            self.image = Image.open(image_path).convert("RGB") # Load image
+        else:
+            self.image = image
 
-        with open(json_path) as json_file: # Load nuclei information (HoVerNet)
-            data = json.load(json_file)
-        nuc_info = data['nuc']
+        if nuc_info is None:
+            with open(json_path) as json_file: # Load nuclei information (HoVerNet)
+                data = json.load(json_file)
+            nuc_info = data['nuc']
+        self.ext_method = ext_method
 
-        self.all_patches, self.coords = image_utils.cell_patch_extractor(self.image, nuc_info, ext_method="centroid",patch_size=72)
+        self.all_patches, self.coords = image_utils.cell_patch_extractor(self.image, nuc_info, ext_method=self.ext_method,patch_size=72)
         self.nr_patches = len(self.all_patches)
 
         self.dataset_transform = transforms.Compose(
@@ -54,7 +59,10 @@ class MyCell2Patch(Dataset):
     def __getitem__(self, index: int):
         patch = self.all_patches[index]
         transformed_patch = self.dataset_transform(patch)
-        coord = self.coords[index]
+        if self.ext_method == "bbox":
+            coord = self.coords[index]
+        else:
+            coord = (0,0)
 
         return coord, transformed_patch
 

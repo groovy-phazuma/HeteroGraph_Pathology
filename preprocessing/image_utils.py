@@ -38,6 +38,7 @@ def cell_bbox_crop(image, min_y, min_x, max_y, max_x):
 
 def cell_patch_extractor(image, nuc_info, ext_method="centroid", patch_size=72):
     ext_candi = ["centroid", "bbox"]
+    assert ext_method in ext_candi, f"Unexpected Method: {ext_method}"
 
     crop_img_list = []
     coords = []
@@ -48,14 +49,13 @@ def cell_patch_extractor(image, nuc_info, ext_method="centroid", patch_size=72):
         center_x = int(round(center_x))
         center_y = int(round(center_y))
 
-        # Extract bounding box
-        min_y, min_x = cell_info['bbox'][0]
-        max_y, max_x = cell_info['bbox'][1]
-        coords.append([min_y, min_x, max_y, max_x])
-
         if ext_method == "centroid":
             crop_img = cell_center_crop(image, center_x, center_y, patch_size=patch_size)
         elif ext_method == "bbox":
+            # Extract bounding box
+            min_y, min_x = cell_info['bbox'][0]
+            max_y, max_x = cell_info['bbox'][1]
+            coords.append([min_y, min_x, max_y, max_x])
             crop_img = cell_bbox_crop(image, min_y, min_x, max_y, max_x)
         crop_img_list.append(crop_img)
         
