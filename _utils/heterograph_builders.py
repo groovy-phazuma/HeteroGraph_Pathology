@@ -334,7 +334,7 @@ class HeteroGraphBuilders():
         graph_data = {}
         graph_data[('tissue','tissue2cell','cell')] = (final_tissue_labels, final_cell_labels)
         graph_data[('cell','cell2tissue','tissue')] = (final_cell_labels, final_tissue_labels)
-        graph_data[('cell','cci','cell')] = (final_cci_s, final_cci_d)
+        #graph_data[('cell','cci','cell')] = (final_cci_s, final_cci_d)
         graph_data[('tissue','tti','tissue')] = (ts+td, td+ts)
         graph = dgl.heterograph(graph_data)
         edges = ['tissue2cell','cell2tissue','cci','tti']
@@ -345,7 +345,7 @@ class HeteroGraphBuilders():
         graph.nodes['cell'].data['feat'] = torch.tensor(merge_cell_feature)
         graph.edges['cell2tissue'].data['weight'] = torch.ones(graph['cell2tissue'].num_edges())
         graph.edges['tissue2cell'].data['weight'] = torch.ones(graph['tissue2cell'].num_edges())
-        graph.edges['cci'].data['weight'] = torch.ones(graph['cci'].num_edges())
+        #graph.edges['cci'].data['weight'] = torch.ones(graph['cci'].num_edges())
         graph.edges['tti'].data['weight'] = torch.ones(graph['tti'].num_edges()) # torch.cat((adj_t[ts,td],adj_t[ts,td]))
 
         return graph, edges, final_estimated_type, relabel(final_true_type), train_update_info

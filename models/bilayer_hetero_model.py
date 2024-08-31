@@ -257,3 +257,4 @@ class HeteroNet(nn.Module):
 
         #return h
         return F.log_softmax(h, dim=1)
+        
