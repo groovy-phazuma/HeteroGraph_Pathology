@@ -5,6 +5,26 @@ Created on 2023-11-02 (Thu) 17:43:56
 reference:
 https://github.com/vqdang/hover_net/tree/67e2ce5e3f1a64a2ece77ad1c24233653a9e0901/misc
 
+
+Note:
+Use histocartography if you want to draw cell graphs.
+
+```
+import sys
+sys.path.append(BASE_DIR+'/github/histocartography')
+from histocartography.visualization import OverlayGraphVisualization, InstanceImageVisualization
+
+visualizer = OverlayGraphVisualization(
+    instance_visualizer=InstanceImageVisualization(
+    instance_style="filled+outline"
+    )
+)
+viz_cg = visualizer.process(
+    canvas=image,
+    graph=cell_graph,
+    instance_map=update_inst_map
+)
+```
 @author: I.Azuma
 """
 import cv2

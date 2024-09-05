@@ -13,6 +13,7 @@ import pandas as pd
 from tqdm import tqdm
 import scipy.io as sio
 from scipy import stats
+from sklearn.neighbors import kneighbors_graph
 from sklearn.decomposition import TruncatedSVD
 
 from PIL import Image
@@ -35,27 +36,34 @@ class HeteroGraphBuilders():
                                 mat_path = '/workspace/mnt/data1/Azuma/Pathology/results/HoverNet_on_ConSeP/pannuke_new_feature/train/mat/train_6.mat',
                                 json_path = '/workspace/mnt/data1/Azuma/Pathology/results/HoverNet_on_ConSeP/pannuke_new_feature/train/json/train_6.json',
                                 true_path = '/workspace/mnt/data1/Azuma/Pathology/datasource/consep/CoNSeP/Train/Labels/train_6.mat',
+                                cell_feat_path = None,
                                 neighbor_k=5,thresh=50,ignore_labels=[0]):
         """
         1. True labels are obtained by matching the dtected cell regions with the correct instamce map.
         2. If the labels assigned are background or cell types to be ignored, they are excluded from the cell graph.
         """
         # 0. image
-        image = np.array(Image.open(image_path))
+        image = np.array(Image.open(image_path))  # (1000, 1000, 3)
         # 1. instance map
         mat_info = sio.loadmat(mat_path)
-        inst_map = mat_info['inst_map']
+        inst_map = mat_info['inst_map']  # (1000, 1000)
         # 2. load json file
         with open(json_path) as json_file:
             info = json.load(json_file)
         info = info['nuc']
 
         # 3. node feature
-        # TODO: Improve to allow input of external information
-        cfe = cell_feature_extractor_legacy.CellFeatureExtractor(mat_path=mat_path,json_path=json_path)
-        cfe.load_data()
-        node_feature = cfe.conduct()
-        node_feature = node_feature[1::] # avoid background
+        if cell_feat_path is None:
+            cfe = cell_feature_extractor_legacy.CellFeatureExtractor(mat_path=mat_path,json_path=json_path)
+            cfe.load_data()
+            node_feature = cfe.conduct()
+            node_feature = node_feature[1::] # avoid background
+            print("Use HoverNet-derived cellular features.")
+        else:
+            node_feature = pd.read_pickle(cell_feat_path)
+            print("Use external cellular features.")
+        
+        assert len(info) == node_feature.shape[0], "Cell counts do not match."
 
         # true map
         true_map =  sio.loadmat(true_path)['type_map']
@@ -64,7 +72,7 @@ class HeteroGraphBuilders():
         error_counter = 0
         ignore_counter = 0
         remove_cell_idx = []
-        new_instances = [0] # add background at first
+        new_instances = [0]  # add background at first
         centroids = []
         update_label = 0
         type_list = []
@@ -78,7 +86,7 @@ class HeteroGraphBuilders():
             tmp_inst = np.where(inst_map==inst_l)
             inst_labels = inst_map[tmp_inst[0],tmp_inst[1]]
             inst_freq = int(stats.mode(inst_labels, axis=None).mode)
-            # Detected cells recognized as background labels
+            # Case 1: Cell recognized as background (label 0)
             if inst_freq == 0:
                 error_counter += 1
                 remove_cell_idx.append(inst_l)
@@ -86,7 +94,7 @@ class HeteroGraphBuilders():
             else:
                 true_labels = true_map[tmp_inst[0],tmp_inst[1]]
                 true_labels = [t for t in true_labels if t != 0] # remove background
-                # All detected pixels are background labels
+                # Case 2: All pixels are background labels in the true map
                 if len(true_labels) == 0:
                     ignore_counter += 1
                     remove_cell_idx.append(inst_l)
@@ -94,11 +102,13 @@ class HeteroGraphBuilders():
                 else:
                     # Most frequent labels other than background labels
                     true_freq = int(stats.mode(true_labels, axis=None).mode)
+                    # Case 3: True label belongs to a list of labels to ignore
                     if true_freq in ignore_labels:
                         ignore_counter += 1
                         remove_cell_idx.append(inst_l)
                         new_instances.append(0)
                     else:
+                        # Case 4: Valid cell, update its information
                         centroids.append([int(round(cent[0])),int(round(cent[1]))])
                         update_label += 1 # Shift the instance number
                         new_instances.append(update_label)
@@ -126,22 +136,35 @@ class HeteroGraphBuilders():
         if np.max(update_inst_map) != cell_graph.num_nodes():
             raise ValueError('!! Something is wrong in creating cell graph !!')
 
-        return cell_graph, update_inst_map, centroids, type_list, true_list, updated_info
+        return (cell_graph, update_inst_map, centroids, type_list, true_list, updated_info)
 
 
     def cg_from_hovernet(self,
                         image_path = '/workspace/mnt/data1/Azuma/Pathology/datasource/consep/CoNSeP/Test/Images/test_10.png',
                         mat_path = '/workspace/mnt/data1/Azuma/Pathology/results/HoverNet_on_ConSeP/pannuke_new_feature/mat/test_10.mat',
-                        json_path = '/workspace/mnt/data1/Azuma/Pathology/results/HoverNet_on_ConSeP/pannuke_new_feature/json/test_10.json',neighbor_k=5,thresh=50):
+                        json_path = '/workspace/mnt/data1/Azuma/Pathology/results/HoverNet_on_ConSeP/pannuke_new_feature/json/test_10.json',
+                        cell_feat_path = None,
+                        neighbor_k=5,thresh=50):
         # 0. image
         image = np.array(Image.open(image_path))
         # 1. instance map
         inst_map = sio.loadmat(mat_path)['inst_map']
+        with open(json_path) as json_file:
+            info = json.load(json_file)
+        info = info['nuc']
+
         # 2. node feature
-        cfe = cell_feature_extractor_legacy.CellFeatureExtractor(mat_path=mat_path,json_path=json_path)
-        cfe.load_data()
-        node_feature = cfe.conduct()
-        node_feature = node_feature[1::] # avoid background
+        if cell_feat_path is None:
+            cfe = cell_feature_extractor_legacy.CellFeatureExtractor(mat_path=mat_path,json_path=json_path)
+            cfe.load_data()
+            node_feature = cfe.conduct()
+            node_feature = node_feature[1::] # avoid background
+            print("Use HoverNet-derived cellular features.")
+        else:
+            node_feature =  pd.read_pickle(cell_feat_path)
+            print("Use external cellular features.")
+        assert len(info) == node_feature.shape[0], "Cell counts do not match."
+
         # 3. centroids
         with open(json_path) as json_file:
             info = json.load(json_file)
@@ -227,7 +250,7 @@ class HeteroGraphBuilders():
             # load cell graph and estimated type list
             # graphs for train and valid
             if image_type[idx] == 0:
-                cell_graph, update_inst_map, centroids, type_list, true_list, update_info = self.purified_cg_from_hovernet(image_path=image_path_list[idx],mat_path=mat_path_list[idx],json_path=json_path_list[idx],true_path=true_label_list[idx],neighbor_k=5,thresh=50,ignore_labels=[0])
+                (cell_graph, update_inst_map, centroids, type_list, true_list, update_info) = self.purified_cg_from_hovernet(image_path=image_path_list[idx],mat_path=mat_path_list[idx],json_path=json_path_list[idx],true_path=true_label_list[idx],neighbor_k=5,thresh=50,ignore_labels=[0])
                 train_update_info.append(update_info)
             # graphs for test
             else:
@@ -289,6 +312,7 @@ class HeteroGraphBuilders():
             t_max = max(ut)+1 # update t_max
 
             # concat each cell and tissue feature
+            # TODO: remove this option in the future >> define in the cg_graph construction
             if idx == 0:
                 merge_tissue_feature = target_feature
                 merge_cell_feature = cell_feature
@@ -301,7 +325,6 @@ class HeteroGraphBuilders():
             print('True Label: ', set(true_list))
 
         # tissue-tissue interaction
-        from sklearn.neighbors import kneighbors_graph
         # 1. kNN adjacency
         adj_t = kneighbors_graph(
                 merge_tissue_feature,
@@ -334,7 +357,7 @@ class HeteroGraphBuilders():
         graph_data = {}
         graph_data[('tissue','tissue2cell','cell')] = (final_tissue_labels, final_cell_labels)
         graph_data[('cell','cell2tissue','tissue')] = (final_cell_labels, final_tissue_labels)
-        #graph_data[('cell','cci','cell')] = (final_cci_s, final_cci_d)
+        graph_data[('cell','cci','cell')] = (final_cci_s, final_cci_d)
         graph_data[('tissue','tti','tissue')] = (ts+td, td+ts)
         graph = dgl.heterograph(graph_data)
         edges = ['tissue2cell','cell2tissue','cci','tti']
@@ -345,7 +368,7 @@ class HeteroGraphBuilders():
         graph.nodes['cell'].data['feat'] = torch.tensor(merge_cell_feature)
         graph.edges['cell2tissue'].data['weight'] = torch.ones(graph['cell2tissue'].num_edges())
         graph.edges['tissue2cell'].data['weight'] = torch.ones(graph['tissue2cell'].num_edges())
-        #graph.edges['cci'].data['weight'] = torch.ones(graph['cci'].num_edges())
+        graph.edges['cci'].data['weight'] = torch.ones(graph['cci'].num_edges())
         graph.edges['tti'].data['weight'] = torch.ones(graph['tti'].num_edges()) # torch.cat((adj_t[ts,td],adj_t[ts,td]))
 
         return graph, edges, final_estimated_type, relabel(final_true_type), train_update_info
