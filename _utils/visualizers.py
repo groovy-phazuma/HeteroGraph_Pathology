@@ -49,6 +49,7 @@ def random_colors(N, bright=True):
 
 def overlay_viz(image,inst_dict,type_colour=None):
     if type_colour is None:
+        # https://github.com/vqdang/hover_net/blob/master/type_info.json
         type_colour = {
                 0: ("nolabe", (0, 0, 0)),  # no label
                 1: ("neopla", (255, 0, 0)),  # neoplastic
@@ -87,8 +88,28 @@ def before_after(pred, s=0, e=650,
                  true_overlay_path = '/workspace/mnt/data1/Azuma/Pathology/datasource/consep/CoNSeP/Train/Overlay/train_6.png',
                  json_path = '/train/json/train_6.json',
                  inst_dict = None):
-    image = np.array(Image.open(image_path))
+    """_summary_
 
+    Parameters
+    ----------
+    pred : _type_
+        _description_
+    s : int, optional
+        _description_, by default 0
+    e : int, optional
+        _description_, by default 650
+    image_path : str, optional
+        _description_, by default '/workspace/mnt/data1/Azuma/Pathology/datasource/consep/CoNSeP/Train/Images/train_6.png'
+    true_overlay_path : str, optional
+        _description_, by default '/workspace/mnt/data1/Azuma/Pathology/datasource/consep/CoNSeP/Train/Overlay/train_6.png'
+    json_path : str, optional
+        _description_, by default '/train/json/train_6.json'
+    inst_dict : _type_, optional
+        _description_, by default None
+    """
+    image = np.array(Image.open(image_path))
+    
+    # PanNuke pretrained mode
     train_colour = {
     0 : ["nolabe", [0  ,   0,   0]], 
     1 : ["neopla", [255,   0,   0]], 
@@ -97,7 +118,7 @@ def before_after(pred, s=0, e=650,
     4 : ["necros", [255, 255,   0]], 
     5 : ["no-neo", [0  , 255,   0]] 
     }
-
+    """ used when evaluationg test_10.png only.
     test_colour = {
         0 : ["nolabe", [0  ,   0,   0]], 
         1 : ["necros", [255, 255,   0]], 
@@ -107,6 +128,19 @@ def before_after(pred, s=0, e=650,
         5 : ["connec", [0  ,   0, 255]],
         6 : ["muscle", [255, 255, 255]]
     }
+    """
+
+    # see https://arxiv.org/pdf/1812.06499
+    test_colour = {
+        0 : ["other",                           [0  ,   0,   0]],  # background
+        1 : ["miscellaneous",                   [255,  255,  0]],  # yellow
+        2 : ["inflam",                          [255,  11, 255]],  # pink
+        3 : ["healthy_epithelical",             [0,   255,   0]],  
+        4 : ["dysplastic_malignant_epithelial", [255, 0,     0]], 
+        5 : ["fibroblast",                      [0,   0,   255]], 
+        6 : ["muscle",                          [0  , 255, 255]],  # cyan
+        7 : ["endothelial",                     [255, 140,   0]],  # orange
+    }
 
     if inst_dict is None:
         with open(json_path) as json_file:
@@ -115,7 +149,7 @@ def before_after(pred, s=0, e=650,
     # before
     overlay = overlay_viz(image=image,inst_dict=inst_dict,type_colour=train_colour)
 
-    # after
+    # after (update inst_dict)
     # _, pred = best_logits.max(dim=1)
     test_pred = pred[s:e] # slice
     counter = 0

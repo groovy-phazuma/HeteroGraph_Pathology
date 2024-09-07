@@ -58,12 +58,12 @@ class HeteroGraphBuilders():
             cfe.load_data()
             node_feature = cfe.conduct()
             node_feature = node_feature[1::] # avoid background
-            print("Use HoverNet-derived cellular features.")
+            print("Use HoverNet-derived cellular features")
         else:
             node_feature = pd.read_pickle(cell_feat_path)
-            print("Use external cellular features.")
+            print("Use external cellular features")
         
-        assert len(info) == node_feature.shape[0], "Cell counts do not match."
+        assert len(info) == node_feature.shape[0], f"{len(info)} != {node_feature.shape[0]}: Cell counts do not match."
 
         # true map
         true_map =  sio.loadmat(true_path)['type_map']
@@ -90,7 +90,7 @@ class HeteroGraphBuilders():
             if inst_freq == 0:
                 error_counter += 1
                 remove_cell_idx.append(inst_l)
-                new_instances.append(0)
+                new_instances.append(0)  # add 0 label
             else:
                 true_labels = true_map[tmp_inst[0],tmp_inst[1]]
                 true_labels = [t for t in true_labels if t != 0] # remove background
@@ -98,7 +98,7 @@ class HeteroGraphBuilders():
                 if len(true_labels) == 0:
                     ignore_counter += 1
                     remove_cell_idx.append(inst_l)
-                    new_instances.append(0)
+                    new_instances.append(0)  # add 0 label
                 else:
                     # Most frequent labels other than background labels
                     true_freq = int(stats.mode(true_labels, axis=None).mode)
@@ -106,7 +106,7 @@ class HeteroGraphBuilders():
                     if true_freq in ignore_labels:
                         ignore_counter += 1
                         remove_cell_idx.append(inst_l)
-                        new_instances.append(0)
+                        new_instances.append(0)  # add 0 label
                     else:
                         # Case 4: Valid cell, update its information
                         centroids.append([int(round(cent[0])),int(round(cent[1]))])
@@ -119,11 +119,11 @@ class HeteroGraphBuilders():
         convert_dict = dict(zip([i for i in range(len(new_instances)+1)],new_instances))
         updated_info = dict(zip([str(i+1) for i in range(len(update_info))], update_info))
 
-        # update instance map (time consuming)
+        # Update instance map (time consuming): Set instances of background and ignored cells to 0.
         inst_df = pd.DataFrame(inst_map)
         fxn = lambda x : convert_dict.get(x)
         update_inst = inst_df.applymap(fxn)
-        update_inst_map = np.array(update_inst)
+        update_inst_map = np.array(update_inst)  # 1000x1000
         del inst_df,update_inst
 
         # update node feature
@@ -159,10 +159,10 @@ class HeteroGraphBuilders():
             cfe.load_data()
             node_feature = cfe.conduct()
             node_feature = node_feature[1::] # avoid background
-            print("Use HoverNet-derived cellular features.")
+            print("Use HoverNet-derived cellular features")
         else:
             node_feature =  pd.read_pickle(cell_feat_path)
-            print("Use external cellular features.")
+            print("Use external cellular features")
         assert len(info) == node_feature.shape[0], "Cell counts do not match."
 
         # 3. centroids
@@ -185,55 +185,44 @@ class HeteroGraphBuilders():
         return cell_graph, type_list
 
 
-    def multiimage_tissue_cell_heterograph(self,image_path_list=[],mat_path_list=[],json_path_list=[],
-                cell_feature_list=[],tissue_feature_list=[],superpixel_list=[],true_label_list=[],
-                feat_svd=True,feature_dim=32,image_type=[0,0,0,1],tti_threshold=0.7,tti_k=5):
-        """_summary_
+    def multiimage_tissue_cell_heterograph(self,image_path_list=[],
+                                                mat_path_list=[],
+                                                json_path_list=[],
+                                                cell_feature_list=[],
+                                                tissue_feature_list=[],
+                                                superpixel_list=[],
+                                                true_label_list=[],
+                                                feat_svd=True,feature_dim=32,image_type=[0,0,0,1],
+                                                tti_threshold=0.7,tti_k=5):
+        """ Generate cell-cell, cell-tissue, tissue-tissue heterogeneous graph.
 
-        Args:
-            image_path_list (_type_):
-                image_path_list = [
-                    '/workspace/mnt/data1/Azuma/Pathology/datasource/consep/CoNSeP/Train/Images/train_6.png',
-                    '/workspace/mnt/data1/Azuma/Pathology/datasource/consep/CoNSeP/Train/Images/train_10.png',
-                    '/workspace/mnt/data1/Azuma/Pathology/datasource/consep/CoNSeP/Train/Images/train_20.png',
-                    '/workspace/mnt/data1/Azuma/Pathology/datasource/consep/CoNSeP/Test/Images/test_10.png'
-                ]
-            mat_path_list (_type_):
-                mat_path_list = [
-                    '/workspace/mnt/data1/Azuma/Pathology/results/HoverNet_on_ConSeP/pannuke_new_feature/train/mat/train_6.mat',
-                    '/workspace/mnt/data1/Azuma/Pathology/results/HoverNet_on_ConSeP/pannuke_new_feature/train/mat/train_10.mat',
-                    '/workspace/mnt/data1/Azuma/Pathology/results/HoverNet_on_ConSeP/pannuke_new_feature/train/mat/train_20.mat',
-                    '/workspace/mnt/data1/Azuma/Pathology/results/HoverNet_on_ConSeP/pannuke_new_feature/test/mat/test_10.mat'
-                ]
-            json_path_list (_type_):
-                json_path_list = [
-                    '/workspace/mnt/data1/Azuma/Pathology/results/HoverNet_on_ConSeP/pannuke_new_feature/train/json/train_6.json',
-                    '/workspace/mnt/data1/Azuma/Pathology/results/HoverNet_on_ConSeP/pannuke_new_feature/train/json/train_10.json',
-                    '/workspace/mnt/data1/Azuma/Pathology/results/HoverNet_on_ConSeP/pannuke_new_feature/train/json/train_20.json',
-                    '/workspace/mnt/data1/Azuma/Pathology/results/HoverNet_on_ConSeP/pannuke_new_feature/test/json/test_10.json'
-                ]
-            tissue_feature_list (_type_):
-                tissue_feature_list = [
-                '/workspace/home/azuma/HeteroGraph_Pathology/231031_models_trial/231114_tissue_feature/results/train_6_tissue_features.pkl',
-                '/workspace/home/azuma/HeteroGraph_Pathology/231031_models_trial/231114_tissue_feature/results/train_10_tissue_features.pkl',
-                '/workspace/home/azuma/HeteroGraph_Pathology/231031_models_trial/231114_tissue_feature/results/train_20_tissue_features.pkl',
-                '/workspace/home/azuma/HeteroGraph_Pathology/231031_models_trial/231114_tissue_feature/results/test_10_tissue_features.pkl'
-            ]
-            superpixel_list (_type_):
-                superpixel_list = [
-                '/workspace/home/azuma/HeteroGraph_Pathology/231031_models_trial/231114_tissue_feature/results/trian_6_superpixel.pkl',
-                '/workspace/home/azuma/HeteroGraph_Pathology/231031_models_trial/231114_tissue_feature/results/trian_10_superpixel.pkl',
-                '/workspace/home/azuma/HeteroGraph_Pathology/231031_models_trial/231114_tissue_feature/results/trian_20_superpixel.pkl',
-                '/workspace/home/azuma/HeteroGraph_Pathology/231031_models_trial/231114_tissue_feature/results/test_10_superpixel.pkl',
-            ]
-            true_label_list (_type_):
-                true_label_list = [
-                '/workspace/mnt/data1/Azuma/Pathology/datasource/consep/CoNSeP/Train/Labels/train_6.mat',
-                '/workspace/mnt/data1/Azuma/Pathology/datasource/consep/CoNSeP/Train/Labels/train_10.mat',
-                '/workspace/mnt/data1/Azuma/Pathology/datasource/consep/CoNSeP/Train/Labels/train_20.mat',
-                '/workspace/mnt/data1/Azuma/Pathology/datasource/consep/CoNSeP/Test/Labels/test_10.mat',
-            ]
-            feature_dim (int, optional): _description_. Defaults to 32.
+        Parameters
+        ----------
+        image_path_list : list, optional
+            Path to the target image like sorted(glob(BASE_DIR+'/datasource/consep/CoNSeP/Train/Images/*.png')), by default []
+        mat_path_list : list, optional
+            Path to the mat file of HoverNet output like sorted(glob(hovernet_res_path+'/train/mat/*.mat')), by default []
+        json_path_list : list, optional
+            Path to the json file of HoverNet output like sorted(glob(hovernet_res_path+'/train/json/*.json')), by default []
+        cell_feature_list : list, optional
+            Path to the obtained tissue morphology features like sorted(glob(feat_res_path+'/cell_feats/train/*.pkl')), by default []
+        tissue_feature_list : list, optional
+            Path to the obtained tissue morphology features like sorted(glob(feat_res_path+'/tissue_feats/train/*.pkl')), by default []
+        superpixel_list : list, optional
+            Path to the obtained superpixels information like sorted(glob(feat_res_path+'/superpixels/train/*.pkl')), by default []
+        true_label_list : list, optional
+            True instance segmentation labels. Set the path like sorted(glob(BASE_DIR+'/datasource/consep/CoNSeP/Train/Labels/*mat')), by default []
+            Note that this label should be used only tain images.
+        feat_svd : bool, optional
+            Whether cell and tissue features should be dimension-reduced with svd., by default True
+        feature_dim : int, optional
+            Features dimension after conducting SVD, by default 32
+        image_type : list, optional
+            Train or test image; in the case of train, cells can be purified using true_label_list. Default [0,0,0,1]
+        tti_threshold : float, optional
+            Threshold for defining edges on Pearson correlation basis, by default 0.7
+        tti_k : int, optional
+            Threshold for defining edges on k-Neighbors, by default 5
 
         """
         t_max = 0
@@ -250,12 +239,21 @@ class HeteroGraphBuilders():
             # load cell graph and estimated type list
             # graphs for train and valid
             if image_type[idx] == 0:
-                (cell_graph, update_inst_map, centroids, type_list, true_list, update_info) = self.purified_cg_from_hovernet(image_path=image_path_list[idx],mat_path=mat_path_list[idx],json_path=json_path_list[idx],true_path=true_label_list[idx],neighbor_k=5,thresh=50,ignore_labels=[0])
+                res = self.purified_cg_from_hovernet(image_path=image_path_list[idx],
+                                                     mat_path=mat_path_list[idx],
+                                                     json_path=json_path_list[idx],
+                                                     cell_feat_path=cell_feature_list[idx],
+                                                     true_path=true_label_list[idx],
+                                                     neighbor_k=5,thresh=50,ignore_labels=[0])
+                (cell_graph, update_inst_map, centroids, type_list, true_list, update_info) = res
                 train_update_info.append(update_info)
             # graphs for test
             else:
-                cell_graph, type_list = self.cg_from_hovernet(image_path=image_path_list[idx],mat_path=mat_path_list[idx],json_path=json_path_list[idx])
-
+                res = self.cg_from_hovernet(image_path=image_path_list[idx],
+                                            mat_path=mat_path_list[idx],
+                                            json_path=json_path_list[idx],
+                                            cell_feat_path=cell_feature_list[idx])
+                (cell_graph, type_list) = res
                 # load instance and true map
                 inst_map = sio.loadmat(mat_path_list[idx])['inst_map']
                 true_map = sio.loadmat(true_label_list[idx])['type_map']
@@ -268,10 +266,13 @@ class HeteroGraphBuilders():
             self.cell_graph_list.append(cell_graph)
 
             # obtain initial cell and tissue feature
+            """
             if len(cell_feature_list) == 0:
                 cell_feature = cell_graph.ndata['feat']
             else:
                 cell_feature = pd.read_pickle(cell_feature_list[idx])
+            """
+            cell_feature = cell_graph.ndata['feat']
 
             tissue_feature = pd.read_pickle(tissue_feature_list[idx])
             superpixel = pd.read_pickle(superpixel_list[idx])
@@ -312,7 +313,6 @@ class HeteroGraphBuilders():
             t_max = max(ut)+1 # update t_max
 
             # concat each cell and tissue feature
-            # TODO: remove this option in the future >> define in the cg_graph construction
             if idx == 0:
                 merge_tissue_feature = target_feature
                 merge_cell_feature = cell_feature
@@ -371,6 +371,7 @@ class HeteroGraphBuilders():
         graph.edges['cci'].data['weight'] = torch.ones(graph['cci'].num_edges())
         graph.edges['tti'].data['weight'] = torch.ones(graph['tti'].num_edges()) # torch.cat((adj_t[ts,td],adj_t[ts,td]))
 
+        #return graph, edges, final_estimated_type, relabel(final_true_type), train_update_info
         return graph, edges, final_estimated_type, relabel(final_true_type), train_update_info
 
 def relabel(label_list=[3,10,21,5]):
