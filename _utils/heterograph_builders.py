@@ -23,7 +23,7 @@ import torch
 
 import sys
 sys.path.append('/workspace/home/azuma/github/HeteroGraph_Pathology')
-from _utils import graph_builders,cell_feature_extractor_legacy,heterograph_builders,visualizers
+from _utils import graph_builders,cell_feature_extractor,heterograph_builders,visualizers
 
 # %% tissue-cell heterogeneous graph
 
@@ -54,7 +54,7 @@ class HeteroGraphBuilders():
 
         # 3. node feature
         if cell_feat_path is None:
-            cfe = cell_feature_extractor_legacy.CellFeatureExtractor(mat_path=mat_path,json_path=json_path)
+            cfe = cell_feature_extractor.CellFeatureExtractor(mat_path=mat_path,json_path=json_path)
             cfe.load_data()
             node_feature = cfe.conduct()
             node_feature = node_feature[1::] # avoid background
@@ -155,7 +155,7 @@ class HeteroGraphBuilders():
 
         # 2. node feature
         if cell_feat_path is None:
-            cfe = cell_feature_extractor_legacy.CellFeatureExtractor(mat_path=mat_path,json_path=json_path)
+            cfe = cell_feature_extractor.CellFeatureExtractor(mat_path=mat_path,json_path=json_path)
             cfe.load_data()
             node_feature = cfe.conduct()
             node_feature = node_feature[1::] # avoid background

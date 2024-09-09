@@ -132,12 +132,12 @@ def before_after(pred, s=0, e=650,
 
     # see https://arxiv.org/pdf/1812.06499
     test_colour = {
-        0 : ["other",                           [0  ,   0,   0]],  # background
+        0 : ["background",                      [0  ,   0,   0]],  # background
         1 : ["miscellaneous",                   [255,  255,  0]],  # yellow
         2 : ["inflam",                          [255,  11, 255]],  # pink
-        3 : ["healthy_epithelical",             [0,   255,   0]],  
-        4 : ["dysplastic_malignant_epithelial", [255, 0,     0]], 
-        5 : ["fibroblast",                      [0,   0,   255]], 
+        3 : ["healthy_epithelical",             [0,   255,   0]],  # green
+        4 : ["dysplastic_malignant_epithelial", [255, 0,     0]],  # red
+        5 : ["fibroblast",                      [0,   0,   255]],  # blue
         6 : ["muscle",                          [0  , 255, 255]],  # cyan
         7 : ["endothelial",                     [255, 140,   0]],  # orange
     }
