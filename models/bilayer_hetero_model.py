@@ -193,6 +193,27 @@ class HeteroNet(nn.Module):
         htissue = self.lin2(tissue_feature)
 
         return hcell, htissue
+    
+    def process_initial_feature_with_sampling(self, blocks):
+        args = self.args
+
+        # Extract cell and tissue features from each block
+        hcell_list = []
+        htissue_list = []
+        
+        for block in blocks:
+            # Obtaine the source node features
+            cell_feature = block.srcdata['feat']['cell']
+            tissue_feature = block.srcdata['feat']['tissue']
+
+            # Linear transformation
+            hcell = self.lin1(cell_feature)
+            htissue = self.lin2(tissue_feature)
+
+            hcell_list.append(hcell)
+            htissue_list.append(htissue)
+
+        return hcell_list, htissue_list
 
     def propagate(self, graph):
         args = self.args
@@ -230,12 +251,44 @@ class HeteroNet(nn.Module):
             hist.append(h)
 
         return hist
+    
+    def propagate_with_sampling(self, blocks:list):
+        args = self.args
+        emb_flag = 0
+        # # Initialize features for the first layer
+        if self.inemb:
+            emb_flag += 1
+            hcell, htissue = self.calculate_initial_embedding(blocks[0])
+        else:
+            hcell, htissue = self.process_initial_feature(blocks[0])
+
+        h = {'cell': hcell, 'tissue': htissue}
+
+        for i in range(args.conv_layers):
+            if i > 0:
+                if emb_flag > 0:
+                    hcell0, htissue0 = self.calculate_initial_embedding(blocks[i])
+                else:
+                    hcell0, htissue0 = self.process_initial_feature(blocks[i])    
+                h = {'cell': torch.cat([h['cell'], hcell0], 1), 'tissue': torch.cat([h['tissue'], htissue0], 1)}
+            
+
+            hist = [h]
+            h = self.conv(blocks[i], i, h, hist)
+        
+        hist = [h] * (args.conv_layers + 1)
+        return hist
+
 
     def forward(self, graph):
         args = self.args
 
-        # propagate
-        hist = self.propagate(graph)
+        # if the graph type is list >> block sampling
+        if isinstance(graph, list):
+            hist = self.propagate_with_sampling(graph)
+        else:
+            hist = self.propagate(graph)
+
         self.hist = hist
 
         # Concat the number of conv_layers other than the initial value.
@@ -257,4 +310,3 @@ class HeteroNet(nn.Module):
 
         #return h
         return F.log_softmax(h, dim=1)
-        
