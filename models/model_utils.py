@@ -10,7 +10,21 @@ utils for training and evaluation
 import torch
 import torch.nn.functional as F
 
+from torch.utils.data import Dataset
+
 # %%
+class SimpleIndexDataset(Dataset):
+
+    def __init__(self, dataset):
+        self.data = dataset
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        x = self.data[index]
+        return x
+
 def predict(model, graph, idx=None, **kwargs):
         """Predict function to get latent representation of data.
 
