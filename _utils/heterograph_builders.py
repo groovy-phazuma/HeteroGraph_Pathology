@@ -235,6 +235,7 @@ class HeteroGraphBuilders():
         final_estimated_type = [] # estimated type list
         final_true_type = []
         train_update_info = []
+        orig_tissue_labels = []
         for idx in range(len(image_type)):
             # load cell graph and estimated type list
             # graphs for train and valid
@@ -278,16 +279,19 @@ class HeteroGraphBuilders():
             superpixel = pd.read_pickle(superpixel_list[idx])
             final_estimated_type.extend(type_list)
 
-            tissue_labels = []
+            # Restricted to areas where cells are on board.
+            original_tissue_labels = []
             for centroids in cell_graph.ndata['centroid'].tolist():
                 x = int(centroids[0])
                 y = int(centroids[1])
-                l = superpixel[y][x]
-                tissue_labels.append(l)
+                l = superpixel[y][x]  # superpixel label (1,2,3,...)
+                original_tissue_labels.append(l)
 
-            unique_idx = [k-1 for k in sorted(list(set(tissue_labels)))]
+            orig_tissue_label_set = sorted(list(set(original_tissue_labels)))
+            unique_idx = [k-1 for k in orig_tissue_label_set]
             target_feature = tissue_feature[[unique_idx]]
-            tissue_labels = heterograph_builders.relabel(tissue_labels) # relabel
+            tissue_labels = heterograph_builders.relabel(original_tissue_labels)
+            orig_tissue_labels.extend([str(idx)+"_"+str(t) for t in orig_tissue_label_set])
 
             # cell labels of cell-cell graph
             s = cell_graph.edges()[0].tolist()
@@ -333,6 +337,7 @@ class HeteroGraphBuilders():
                 include_self=False,
                 metric="euclidean").toarray()
         adj_t = torch.tensor(np.array(adj_t))
+
         # 2. correlation based (legacy)
         """
         cor_adj = pd.DataFrame(merge_tissue_feature).T.corr()
@@ -342,6 +347,7 @@ class HeteroGraphBuilders():
         adj_t = torch.tensor(np.array(cor_adj))
         """
         self.adj_t = adj_t
+        self.orig_tissue_labels = orig_tissue_labels
         edge_index = adj_t.nonzero().t().contiguous()
         ts = edge_index[0].tolist()
         td = edge_index[1].tolist()
