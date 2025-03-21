@@ -74,12 +74,14 @@ class HeteroGraphBuilders():
         remove_cell_idx = []
         new_instances = [0]  # add background at first
         centroids = []
+        bboxs = []
         update_label = 0
         type_list = []
         true_list = []
         update_info = []
         for inst_l in tqdm(range(1,inst_map.max()+1)):
             cent = info[str(inst_l)]['centroid']
+            bbox = info[str(inst_l)]['bbox']
             x = int(round(cent[0]))
             y = int(round(cent[1]))
 
@@ -110,6 +112,7 @@ class HeteroGraphBuilders():
                     else:
                         # Case 4: Valid cell, update its information
                         centroids.append([int(round(cent[0])),int(round(cent[1]))])
+                        bboxs.append(bbox)
                         update_label += 1 # Shift the instance number
                         new_instances.append(update_label)
                         type_list.append(info[str(inst_l)]['type']) # original type
@@ -131,6 +134,13 @@ class HeteroGraphBuilders():
 
         dat = graph_builders.CentroidsKNNGraphBuilder(k=neighbor_k, thresh=thresh, add_loc_feats=False)
         cell_graph = dat.process(instance_map=update_inst_map,features=update_node_feature,centroids=centroids)
+
+        # add bbox information and QC
+        assert len(cell_graph.ndata['centroid']) == len(bboxs), "Centroids and bboxs do not match."
+        cell_graph.ndata['bbox'] = torch.tensor(bboxs)  # bbox information
+
+        for i, (centroid, bbox) in enumerate(zip(centroids, bboxs)):
+            assert is_centroid_inside_bbox(centroid, bbox), f"Centroid {centroid} is not inside bbox {bbox}"
 
         # checkpoint
         if np.max(update_inst_map) != cell_graph.num_nodes():
@@ -170,10 +180,13 @@ class HeteroGraphBuilders():
             info = json.load(json_file)
         info = info['nuc']
         centroids = np.empty((len(info), 2))
+        bboxs = []
         for i,k in enumerate(info):
             cent = info[k]['centroid']
             centroids[i,0] = int(round(cent[0]))
             centroids[i,1] = int(round(cent[1]))
+            bbox = info[k]['bbox']  # 'bbox': [[0, 0], [10, 21]],
+            bboxs.append(bbox)
         # cell type label
         type_list = []
         for i,k in enumerate(info):
@@ -181,6 +194,17 @@ class HeteroGraphBuilders():
 
         dat = graph_builders.CentroidsKNNGraphBuilder(k=neighbor_k, thresh=thresh, add_loc_feats=False)
         cell_graph = dat.process(instance_map=inst_map,features=node_feature,centroids=centroids)
+
+        # add bbox information and QC
+        assert len(cell_graph.ndata['centroid']) == len(bboxs), "Centroids and bboxs do not match."
+        cell_graph.ndata['bbox'] = torch.tensor(bboxs)  # bbox information
+        """
+        centroid: [622., 996.]
+        bbox: [[ 992,  615],
+              [1000,  630]]
+        """
+        for i, (centroid, bbox) in enumerate(zip(centroids, bboxs)):
+            assert is_centroid_inside_bbox(centroid, bbox), f"Centroid {centroid} is not inside bbox {bbox}"
 
         return cell_graph, type_list
 
@@ -427,3 +451,9 @@ def instance_true_assignment(inst_map,true_map,info,ignore_labels=[0]):
         true_list.append(true_freq)
 
     return type_list, true_list
+
+def is_centroid_inside_bbox(centroid, bbox):
+    cx, cy = centroid
+    (ymin, xmin), (ymax, xmax) = bbox 
+
+    return xmin <= cx <= xmax and ymin <= cy <= ymax
