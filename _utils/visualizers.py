@@ -158,7 +158,8 @@ def before_after(pred, s=0, e=650,
         new_label = int(test_pred[i])
         if old_label != new_label:
             counter += 1
-        inst_dict.get(str(i+1))['type'] = new_label
+        inst_dict.get(str(i+1))['type'] = new_label  # update
+    print(f"{counter}/{len(test_pred)} cells are updated.")
     overlay2 = overlay_viz(image=image,inst_dict=inst_dict,type_colour=test_colour)
     true_image = np.array(Image.open(true_overlay_path))
 
