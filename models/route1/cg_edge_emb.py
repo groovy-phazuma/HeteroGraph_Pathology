@@ -155,13 +155,12 @@ class GNNClassifierDynamic(nn.Module):
         edge_feats = torch.stack(edge_pos_encodings, dim=0)
         return edge_feats
 
-    def forward(self, features, edge_index=None, t=3):
+    def forward(self, node_f, edge_f, edge_index=None, t=3):
         if edge_index is None:
             edge_index = self.edge_index
         
-        edge_features = self.compute_edge_features(features)
-        node_features, edge_features = self.gnn(features, edge_features, t)
+        node_features, edge_features = self.gnn(node_f, edge_f, t)
         node_preds = self.node_classifier(node_features)
         edge_preds = self.edge_classifier(edge_features)
         
-        return node_preds, edge_preds
+        return node_preds, edge_preds, node_features, edge_features
